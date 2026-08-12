@@ -1,5 +1,6 @@
 import datetime
 
+
 def timestamp(text):
     """
     This function returns the specified text with the prefix of the current date

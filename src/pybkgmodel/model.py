@@ -3,17 +3,13 @@ import astropy.units as u
 
 from astropy.coordinates import SkyCoord
 
-from pybkgmodel.data import (MagicRootEventFile,
-                             LstDL2EventFile,
-                             DL3EventFile
-                            )
+from pybkgmodel.data import MagicRootEventFile, LstDL2EventFile, DL3EventFile
 from pybkgmodel.data import find_run_neighbours
 
 from pybkgmodel.camera import RectangularCameraImage
 
 
 class BaseMap:
-
     """
     Base class for the runwise background map reconstruction methods.
     Not intended to be used directly, bust just defines some common
@@ -48,20 +44,19 @@ class BaseMap:
         """
         if MagicRootEventFile.is_compatible(target_run.file_name):
             evtfiles = [
-            MagicRootEventFile(run.file_name, cuts=cuts)
-            for run in (target_run,) + neighbours
+                MagicRootEventFile(run.file_name, cuts=cuts)
+                for run in (target_run,) + neighbours
             ]
             return evtfiles
         elif LstDL2EventFile.is_compatible(target_run.file_name):
             evtfiles = [
-            LstDL2EventFile(run.file_name, cuts=cuts)
-            for run in (target_run,) + neighbours
+                LstDL2EventFile(run.file_name, cuts=cuts)
+                for run in (target_run,) + neighbours
             ]
             return evtfiles
         elif DL3EventFile.is_compatible(target_run.file_name):
             evtfiles = [
-            DL3EventFile(run.file_name)
-            for run in (target_run,) + neighbours
+                DL3EventFile(run.file_name) for run in (target_run,) + neighbours
             ]
             return evtfiles
         else:
@@ -90,15 +85,16 @@ class WobbleMap(BaseMap):
         Pointing difference between runs for run matching, by default 2*u.deg.
     """
 
-    def __init__(self,
-                 runs,
-                 x_edges,
-                 y_edges,
-                 e_edges,
-                 cuts,
-                 time_delta=0.2*u.hr,
-                 pointing_delta=2*u.deg
-                 ):
+    def __init__(
+        self,
+        runs,
+        x_edges,
+        y_edges,
+        e_edges,
+        cuts,
+        time_delta=0.2 * u.hr,
+        pointing_delta=2 * u.deg,
+    ):
         """
         Function initializing a class for generating runwise background maps using
         the wobble map algorithm.
@@ -121,15 +117,15 @@ class WobbleMap(BaseMap):
         pointing_delta : astropy.units.quantity.Quantity
             Pointing difference between runs for run matching, by default 2*u.deg.
         """
-        self.runs           = runs
-        self.xedges         = x_edges
-        self.yedges         = y_edges
-        self.energy_edges   = e_edges
-        self.cuts           = cuts
-        self.time_delta     = time_delta
+        self.runs = runs
+        self.xedges = x_edges
+        self.yedges = y_edges
+        self.energy_edges = e_edges
+        self.cuts = cuts
+        self.time_delta = time_delta
         self.pointing_delta = pointing_delta
 
-    def get_runwise_bkg(self, target_run)->RectangularCameraImage:
+    def get_runwise_bkg(self, target_run) -> RectangularCameraImage:
         """Function for obtaining runwise background maps using the Wobble
         map method.
 
@@ -144,35 +140,29 @@ class WobbleMap(BaseMap):
             Returns a camera object containing the event counts and exposure
             for each camera bin.
         """
-        neighbours = find_run_neighbours(target_run,
-                                         self.runs,
-                                         self.time_delta,
-                                         self.pointing_delta
-                                         )
+        neighbours = find_run_neighbours(
+            target_run, self.runs, self.time_delta, self.pointing_delta
+        )
 
-        evtfiles = self.read_runs(target_run = target_run,
-                                          neighbours = neighbours,
-                                          cuts = self.cuts
-                                          )
+        evtfiles = self.read_runs(
+            target_run=target_run, neighbours=neighbours, cuts=self.cuts
+        )
 
         images = [
-            RectangularCameraImage.from_events(event_file,
-                                               self.xedges,
-                                               self.yedges,
-                                               self.energy_edges
-                                               )
+            RectangularCameraImage.from_events(
+                event_file, self.xedges, self.yedges, self.energy_edges
+            )
             for event_file in evtfiles
         ]
 
-        pointing_ra = u.Quantity([event_file.pointing_ra.mean() for event_file
-                                  in evtfiles])
-        pointing_dec =  u.Quantity([event_file.pointing_dec.mean() for event_file
-                                    in evtfiles])
-
-        src_coord = SkyCoord(
-            ra=pointing_ra.mean(),
-            dec=pointing_dec.mean()
+        pointing_ra = u.Quantity(
+            [event_file.pointing_ra.mean() for event_file in evtfiles]
         )
+        pointing_dec = u.Quantity(
+            [event_file.pointing_dec.mean() for event_file in evtfiles]
+        )
+
+        src_coord = SkyCoord(ra=pointing_ra.mean(), dec=pointing_dec.mean())
 
         for image in images:
             src_cam = src_coord.transform_to(image.center.skyoffset_frame())
@@ -181,11 +171,10 @@ class WobbleMap(BaseMap):
         counts = np.sum([im.counts for im in images], axis=0)
         exposure = u.Quantity([im.exposure for im in images]).sum(axis=0)
 
-        return RectangularCameraImage(counts, self.xedges,
-                                      self.yedges,
-                                      self.energy_edges,
-                                      exposure=exposure
-                                      )
+        return RectangularCameraImage(
+            counts, self.xedges, self.yedges, self.energy_edges, exposure=exposure
+        )
+
 
 class ExclusionMap(BaseMap):
     """
@@ -212,16 +201,18 @@ class ExclusionMap(BaseMap):
     pointing_delta : astropy.units.quantity.Quantity
         Pointing difference between runs for run matching, by default 2*u.deg.
     """
-    def __init__(self,
-                 runs,
-                 x_edges,
-                 y_edges,
-                 e_edges,
-                 regions,
-                 cuts,
-                 time_delta=0.2*u.hr,
-                 pointing_delta=2*u.deg
-                 ):
+
+    def __init__(
+        self,
+        runs,
+        x_edges,
+        y_edges,
+        e_edges,
+        regions,
+        cuts,
+        time_delta=0.2 * u.hr,
+        pointing_delta=2 * u.deg,
+    ):
         """
         Function initializing a class for generating runwise background maps using
         the exclusion map algorithm.
@@ -246,16 +237,16 @@ class ExclusionMap(BaseMap):
         pointing_delta : astropy.units.quantity.Quantity
             Pointing difference between runs for run matching, by default 2*u.deg.
         """
-        self.runs           = runs
-        self.xedges         = x_edges
-        self.yedges         = y_edges
-        self.energy_edges   = e_edges
-        self.regions        = regions
-        self.cuts           = cuts
-        self.time_delta     = time_delta
+        self.runs = runs
+        self.xedges = x_edges
+        self.yedges = y_edges
+        self.energy_edges = e_edges
+        self.regions = regions
+        self.cuts = cuts
+        self.time_delta = time_delta
         self.pointing_delta = pointing_delta
 
-    def get_runwise_bkg(self, target_run)->RectangularCameraImage:
+    def get_runwise_bkg(self, target_run) -> RectangularCameraImage:
         """Function for obtaining runwise background maps using the Exclusion
         map method.
 
@@ -270,23 +261,18 @@ class ExclusionMap(BaseMap):
             Returns a camera object containing the event counts and exposure
             for each camera bin.
         """
-        neighbours = find_run_neighbours(target_run,
-                                         self.runs,
-                                         self.time_delta,
-                                         self.pointing_delta
-                                         )
+        neighbours = find_run_neighbours(
+            target_run, self.runs, self.time_delta, self.pointing_delta
+        )
 
-        evtfiles = self.read_runs(target_run = target_run,
-                                          neighbours = neighbours,
-                                          cuts = self.cuts
-                                          )
+        evtfiles = self.read_runs(
+            target_run=target_run, neighbours=neighbours, cuts=self.cuts
+        )
 
         images = [
-            RectangularCameraImage.from_events(event_file,
-                                               self.xedges,
-                                               self.yedges,
-                                               self.energy_edges
-                                               )
+            RectangularCameraImage.from_events(
+                event_file, self.xedges, self.yedges, self.energy_edges
+            )
             for event_file in evtfiles
         ]
 
@@ -297,9 +283,6 @@ class ExclusionMap(BaseMap):
         counts = np.sum([im.counts for im in images], axis=0)
         exposure = u.Quantity([im.exposure for im in images]).sum(axis=0)
 
-        return RectangularCameraImage(counts,
-                                      self.xedges,
-                                      self.yedges,
-                                      self.energy_edges,
-                                      exposure=exposure
-                                      )
+        return RectangularCameraImage(
+            counts, self.xedges, self.yedges, self.energy_edges, exposure=exposure
+        )

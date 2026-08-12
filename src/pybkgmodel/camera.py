@@ -36,7 +36,11 @@ def solid_angle_lat_lon_rectangle(theta_E, theta_W, phi_N, phi_S):
     phi_S = phi_S.to(u.Unit("rad"))
     theta_E = theta_E.to(u.Unit("rad"))
     theta_W = theta_W.to(u.Unit("rad"))
-    solid_angle = (np.sin(phi_N) - np.sin(phi_S)) * (theta_E.to_value() - theta_W.to_value()) * u.sr
+    solid_angle = (
+        (np.sin(phi_N) - np.sin(phi_S))
+        * (theta_E.to_value() - theta_W.to_value())
+        * u.sr
+    )
 
     return solid_angle
 
@@ -58,7 +62,7 @@ def cstat(y, model_y):
         2 * log-likelihood value.
 
     """
-    val = -2 * np.sum(y * np.log(model_y) - model_y - scipy.special.gammaln(y+1))
+    val = -2 * np.sum(y * np.log(model_y) - model_y - scipy.special.gammaln(y + 1))
 
     return val
 
@@ -86,7 +90,15 @@ def pwl2counts(emin, emax, norm, e0, index):
         Integrated spectrum value in the range [emin; emax]
 
     """
-    counts = norm * e0 / (index + 1) * ((emax/e0).decompose()**(index + 1) - (emin/e0).decompose()**(index + 1))
+    counts = (
+        norm
+        * e0
+        / (index + 1)
+        * (
+            (emax / e0).decompose() ** (index + 1)
+            - (emin / e0).decompose() ** (index + 1)
+        )
+    )
     return counts
 
 
@@ -126,23 +138,13 @@ def nodespec_integral(energy_edges, dnde):
     dx = np.diff(energy.to(xunit).value)
     dy = np.diff(dnde.to(yunit).value)
     indicies = dy / dx
-    indicies = np.concatenate(
-        (indicies[:1], indicies, indicies[-1:])
-    )
+    indicies = np.concatenate((indicies[:1], indicies, indicies[-1:]))
 
     counts += pwl2counts(
-        emin=energy_edges[:-1],
-        emax=energy,
-        norm=dnde,
-        e0=energy,
-        index=indicies[:-1]
+        emin=energy_edges[:-1], emax=energy, norm=dnde, e0=energy, index=indicies[:-1]
     )
     counts += pwl2counts(
-        emin=energy,
-        emax=energy_edges[1:],
-        norm=dnde,
-        e0=energy,
-        index=indicies[1:]
+        emin=energy, emax=energy_edges[1:], norm=dnde, e0=energy, index=indicies[1:]
     )
 
     return counts
@@ -156,7 +158,7 @@ def node_cnt_diff(dnde, energy_edges, counts, poisson=False):
     ncounts = nodespec_integral(energy_edges, dnde)
 
     if not poisson:
-        delta = (counts - ncounts)**2
+        delta = (counts - ncounts) ** 2
     else:
         delta = cstat(counts, ncounts)
 
@@ -164,7 +166,16 @@ def node_cnt_diff(dnde, energy_edges, counts, poisson=False):
 
 
 class CameraImage:
-    def __init__(self, counts, xedges, yedges, energy_edges, center=None, mask=None, exposure=None):
+    def __init__(
+        self,
+        counts,
+        xedges,
+        yedges,
+        energy_edges,
+        center=None,
+        mask=None,
+        exposure=None,
+    ):
         nx = xedges.size - 1
         ny = yedges.size - 1
 
@@ -192,17 +203,24 @@ class CameraImage:
         center = cls.get_poiting(event_file)
         image = cls.bin_events(event_file, xedges, yedges, energy_edges)
 
-        return cls(image, xedges, yedges, energy_edges, center=center, exposure=event_file.events.eff_obs_time)
+        return cls(
+            image,
+            xedges,
+            yedges,
+            energy_edges,
+            center=center,
+            exposure=event_file.events.eff_obs_time,
+        )
 
     def __repr__(self):
         print(
-f"""{type(self).__name__} instance
-    {'Center':.<20s}: {self.center}
-    {'X range':.<20s}: [{self.xedges.min():.1f}, {self.xedges.max():.1f}]
-    {'Y range':.<20s}: [{self.yedges.min():.1f}, {self.yedges.max():.1f}]
-    {'X bins':.<20s}: {len(self.xedges) - 1}
-    {'X bins':.<20s}: {len(self.yedges) - 1}
-    {'Exposure (mean)':.<20s}: {self.raw_exposure[self.mask].mean()}
+            f"""{type(self).__name__} instance
+    {"Center":.<20s}: {self.center}
+    {"X range":.<20s}: [{self.xedges.min():.1f}, {self.xedges.max():.1f}]
+    {"Y range":.<20s}: [{self.yedges.min():.1f}, {self.yedges.max():.1f}]
+    {"X bins":.<20s}: {len(self.xedges) - 1}
+    {"X bins":.<20s}: {len(self.yedges) - 1}
+    {"Exposure (mean)":.<20s}: {self.raw_exposure[self.mask].mean()}
 """
         )
 
@@ -220,7 +238,9 @@ f"""{type(self).__name__} instance
 
     @classmethod
     def get_poiting(cls, event_file):
-        return SkyCoord(ra=event_file.pointing_ra.mean(), dec=event_file.pointing_dec.mean())
+        return SkyCoord(
+            ra=event_file.pointing_ra.mean(), dec=event_file.pointing_dec.mean()
+        )
 
     @property
     def counts(self):
@@ -256,12 +276,19 @@ f"""{type(self).__name__} instance
 
         emin = self.energy_edges[:-1]
         emax = self.energy_edges[1:]
-        e0 = (emin * emax)**0.5
+        e0 = (emin * emax) ** 0.5
 
         if index is None:
             # Approximate solution
             index = -2
-            int2diff = (index + 1) / e0 / ((emax/e0).decompose()**(index + 1) - (emin/e0).decompose()**(index + 1))
+            int2diff = (
+                (index + 1)
+                / e0
+                / (
+                    (emax / e0).decompose() ** (index + 1)
+                    - (emin / e0).decompose() ** (index + 1)
+                )
+            )
 
             dnde = self.counts * int2diff[:, None, None]
 
@@ -271,8 +298,13 @@ f"""{type(self).__name__} instance
                 for yi in range(self.rate.shape[2]):
                     if not np.any(dnde[:, xi, yi] == 0):
                         opt = scipy.optimize.minimize(
-                            lambda x: node_cnt_diff((x*dnde_unit).physical, self.energy_edges, self.counts[:, xi, yi], poisson=True),
-                            x0=dnde[:, xi, yi].to(dnde_unit).value
+                            lambda x: node_cnt_diff(
+                                (x * dnde_unit).physical,
+                                self.energy_edges,
+                                self.counts[:, xi, yi],
+                                poisson=True,
+                            ),
+                            x0=dnde[:, xi, yi].to(dnde_unit).value,
                         )
 
                         if opt.success == True:
@@ -281,7 +313,14 @@ f"""{type(self).__name__} instance
             dnde = dnde / self.raw_exposure / self.pixel_area
 
         else:
-            int2diff = (index + 1) / e0 / ((emax/e0).decompose()**(index + 1) - (emin/e0).decompose()**(index + 1))
+            int2diff = (
+                (index + 1)
+                / e0
+                / (
+                    (emax / e0).decompose() ** (index + 1)
+                    - (emin / e0).decompose() ** (index + 1)
+                )
+            )
 
             dnde = self.rate * int2diff[:, None, None]
 
@@ -295,13 +334,17 @@ f"""{type(self).__name__} instance
         pointer : SkyCoord
             Source position in the camera coordinate system.
         """
-        offset_delta = Angle('90d')
+        offset_delta = Angle("90d")
 
         pixel_position_angles = self.center.position_angle(self.pixel_coords)
         pointer_position_angle = self.center.position_angle(pointer)
-        position_angle_offest = (pixel_position_angles - pointer_position_angle).wrap_at('180d')
+        position_angle_offest = (
+            pixel_position_angles - pointer_position_angle
+        ).wrap_at("180d")
 
-        to_mask = (position_angle_offest >= -offset_delta) & (position_angle_offest < offset_delta)
+        to_mask = (position_angle_offest >= -offset_delta) & (
+            position_angle_offest < offset_delta
+        )
 
         self.mask[to_mask] = False
 
@@ -327,21 +370,19 @@ f"""{type(self).__name__} instance
         self.mask[in_region] = False
 
     def mask_reset(self):
-        """_summary_
-        """
+        """_summary_"""
         self.mask = np.ones((self.xedges.size - 1, self.yedges.size - 1), dtype=bool)
 
-
-    def plot(self, energy_bin_id=0, ax_unit='deg', val_unit='1/s', **kwargs):
-        pyplot.xlabel(f'X [{ax_unit}]')
-        pyplot.ylabel(f'Y [{ax_unit}]')
+    def plot(self, energy_bin_id=0, ax_unit="deg", val_unit="1/s", **kwargs):
+        pyplot.xlabel(f"X [{ax_unit}]")
+        pyplot.ylabel(f"Y [{ax_unit}]")
         pyplot.pcolormesh(
             self.xedges.to(ax_unit).value,
             self.yedges.to(ax_unit).value,
             (self.counts[energy_bin_id] / self.raw_exposure).to(val_unit).transpose(),
-            **kwargs
+            **kwargs,
         )
-        pyplot.colorbar(label=f'rate [{val_unit}]')
+        pyplot.colorbar(label=f"rate [{val_unit}]")
 
 
 class RectangularCameraImage(CameraImage):
@@ -353,35 +394,23 @@ class RectangularCameraImage(CameraImage):
         cam = events.transform_to(center.skyoffset_frame())
 
         hist, _ = np.histogramdd(
-            sample=(
-                event_file.event_energy,
-                cam.lon,
-                cam.lat
-            ),
-            bins=(
-                energy_edges,
-                xedges,
-                yedges
-            )
+            sample=(event_file.event_energy, cam.lon, cam.lat),
+            bins=(energy_edges, xedges, yedges),
         )
 
         return hist
 
     def get_pixel_coords(self):
         if self.center is None:
-            frame=None
+            frame = None
         else:
-            frame=self.center.skyoffset_frame()
+            frame = self.center.skyoffset_frame()
 
         x = (self.xedges[1:] + self.xedges[:-1]) / 2
         y = (self.yedges[1:] + self.yedges[:-1]) / 2
-        xx, yy = np.meshgrid(x, y, indexing='ij')
+        xx, yy = np.meshgrid(x, y, indexing="ij")
 
-        pixel_coords = SkyCoord(
-            xx,
-            yy,
-            frame=frame
-        )
+        pixel_coords = SkyCoord(xx, yy, frame=frame)
 
         return pixel_coords
 
@@ -393,11 +422,16 @@ class RectangularCameraImage(CameraImage):
 
         for i in range(nx):
             for j in range(ny):
-                area[i, j] = solid_angle_lat_lon_rectangle(self.xedges[i], self.xedges[i+1], self.yedges[j], self.yedges[j+1])
+                area[i, j] = solid_angle_lat_lon_rectangle(
+                    self.xedges[i],
+                    self.xedges[i + 1],
+                    self.yedges[j],
+                    self.yedges[j + 1],
+                )
 
         return area
 
-    def to_hdu(self, name='BACKGROUND'):
+    def to_hdu(self, name="BACKGROUND"):
         energ_lo = self.energy_edges[:-1]
         energ_hi = self.energy_edges[1:]
 
@@ -409,21 +443,32 @@ class RectangularCameraImage(CameraImage):
 
         bkg_rate = self.differential_rate(index=-2)
 
-        col_energ_lo = pyfits.Column(name='ENERG_LO', unit='TeV', format=f'{energ_lo.size}E', array=[energ_lo])
-        col_energ_hi = pyfits.Column(name='ENERG_HI', unit='TeV', format=f'{energ_hi.size}E', array=[energ_hi])
-        col_detx_lo = pyfits.Column(name='DETX_LO', unit='deg', format=f'{detx_lo.size}E', array=[detx_lo])
-        col_detx_hi = pyfits.Column(name='DETX_HI', unit='deg', format=f'{detx_hi.size}E', array=[detx_hi])
-        col_dety_lo = pyfits.Column(name='DETY_LO', unit='deg', format=f'{dety_lo.size}E', array=[dety_lo])
-        col_dety_hi = pyfits.Column(name='DETY_HI', unit='deg', format=f'{dety_hi.size}E', array=[dety_hi])
+        col_energ_lo = pyfits.Column(
+            name="ENERG_LO", unit="TeV", format=f"{energ_lo.size}E", array=[energ_lo]
+        )
+        col_energ_hi = pyfits.Column(
+            name="ENERG_HI", unit="TeV", format=f"{energ_hi.size}E", array=[energ_hi]
+        )
+        col_detx_lo = pyfits.Column(
+            name="DETX_LO", unit="deg", format=f"{detx_lo.size}E", array=[detx_lo]
+        )
+        col_detx_hi = pyfits.Column(
+            name="DETX_HI", unit="deg", format=f"{detx_hi.size}E", array=[detx_hi]
+        )
+        col_dety_lo = pyfits.Column(
+            name="DETY_LO", unit="deg", format=f"{dety_lo.size}E", array=[dety_lo]
+        )
+        col_dety_hi = pyfits.Column(
+            name="DETY_HI", unit="deg", format=f"{dety_hi.size}E", array=[dety_hi]
+        )
 
         col_bkg_rate = pyfits.Column(
-            name='BKG',
-            unit='s^-1 MeV^-1 sr^-1',
+            name="BKG",
+            unit="s^-1 MeV^-1 sr^-1",
             format=f"{bkg_rate.size}E",
-            array=[
-                bkg_rate.to('1 / (s * MeV * sr)').value.transpose()
-            ],
-            dim=str(bkg_rate.shape))
+            array=[bkg_rate.to("1 / (s * MeV * sr)").value.transpose()],
+            dim=str(bkg_rate.shape),
+        )
 
         columns = [
             col_energ_lo,
@@ -432,19 +477,21 @@ class RectangularCameraImage(CameraImage):
             col_detx_hi,
             col_dety_lo,
             col_dety_hi,
-            col_bkg_rate
+            col_bkg_rate,
         ]
 
         col_defs = pyfits.ColDefs(columns)
         hdu = pyfits.BinTableHDU.from_columns(col_defs)
         hdu.name = name
 
-        hdu.header['HDUDOC'] = 'https://github.com/open-gamma-ray-astro/gamma-astro-data-formats'
-        hdu.header['HDUVERS'] = '0.2'
-        hdu.header['HDUCLASS'] = 'GADF'
-        hdu.header['HDUCLAS1'] = 'RESPONSE'
-        hdu.header['HDUCLAS2'] = 'BKG'
-        hdu.header['HDUCLAS3'] = 'FULL-ENCLOSURE'
-        hdu.header['HDUCLAS4'] = 'BKG_3D'
+        hdu.header["HDUDOC"] = (
+            "https://github.com/open-gamma-ray-astro/gamma-astro-data-formats"
+        )
+        hdu.header["HDUVERS"] = "0.2"
+        hdu.header["HDUCLASS"] = "GADF"
+        hdu.header["HDUCLAS1"] = "RESPONSE"
+        hdu.header["HDUCLAS2"] = "BKG"
+        hdu.header["HDUCLAS3"] = "FULL-ENCLOSURE"
+        hdu.header["HDUCLAS4"] = "BKG_3D"
 
         return hdu
