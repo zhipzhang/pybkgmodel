@@ -986,7 +986,7 @@ class OffRunSummary:
         file_paths = []
         for obs_id in self.obs_id:
             matching_files = glob.glob(
-                f"{self.path_prefix}/*{obs_id}*", recursive=False
+                f"{self.path_prefix}/dl3_LST-1.Run{obs_id}*", recursive=False
             )
             if len(matching_files) == 0:
                 print(f"No file found for obs_id {obs_id}.")
