@@ -1029,9 +1029,12 @@ def find_offrun_neighbours(target_run, offrunsummary: OffRunSummary, pointing_de
     offrun_pointing = SkyCoord(
         offrunsummary.az_tel, offrunsummary.alt_tel, frame=AltAz()
     )
-    pointing_separation = target_run.tel_pointing_start.altaz.separation(
-        offrun_pointing
+    target_run_pointing = SkyCoord(
+        target_run.tel_pointing_start.az,
+        target_run.tel_pointing_start.alt,
+        frame=AltAz(),
     )
+    pointing_separation = target_run_pointing.separation(offrun_pointing)
     mask = pointing_separation < pointing_delta
     neighbor_files = offrunsummary.files[mask]
 
