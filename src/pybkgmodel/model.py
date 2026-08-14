@@ -1,12 +1,14 @@
-import numpy as np
 import astropy.units as u
-
+import numpy as np
 from astropy.coordinates import SkyCoord
 
-from pybkgmodel.data import MagicRootEventFile, LstDL2EventFile, DL3EventFile
-from pybkgmodel.data import find_run_neighbours
-
 from pybkgmodel.camera import RectangularCameraImage
+from pybkgmodel.data import (
+    DL3EventFile,
+    LstDL2EventFile,
+    MagicRootEventFile,
+    find_run_neighbours,
+)
 
 
 class BaseMap:
@@ -170,6 +172,80 @@ class WobbleMap(BaseMap):
 
         counts = np.sum([im.counts for im in images], axis=0)
         exposure = u.Quantity([im.exposure for im in images]).sum(axis=0)
+
+        return RectangularCameraImage(
+            counts, self.xedges, self.yedges, self.energy_edges, exposure=exposure
+        )
+
+
+class OffDataMap(BaseMap):
+    """Generate runwise background maps from offset observations.
+
+    Unlike :class:`ExclusionMap`, this method uses all selected events and does
+    not require an exclusion region.
+
+    Parameters
+    ----------
+    runs : tuple
+        Source data.
+    x_edges : np.ndarray
+        Array of bin edges along the x/azimuth axis.
+    y_edges : np.ndarray
+        Array of bin edges along the y/zenith axis.
+    e_edges : np.ndarray
+        Array of bin edges in energy.
+    cuts : str
+        Event selection cuts.
+    pointing_delta : astropy.units.quantity.Quantity, optional
+        Maximum pointing difference used for run matching, by default 2 degrees.
+    """
+
+    def __init__(
+        self,
+        runs,
+        x_edges,
+        y_edges,
+        e_edges,
+        cuts,
+        pointing_delta=2 * u.deg,
+    ):
+        self.runs = runs
+        self.xedges = x_edges
+        self.yedges = y_edges
+        self.energy_edges = e_edges
+        self.cuts = cuts
+        self.pointing_delta = pointing_delta
+
+    def get_runwise_bkg(self, target_run) -> RectangularCameraImage:
+        """Build a runwise offset background map for ``target_run``.
+
+        Parameters
+        ----------
+        target_run : RunSummary
+            Run for which the background map shall be generated.
+
+        Returns
+        -------
+        RectangularCameraImage
+            Camera image containing the summed event counts and exposure.
+        """
+        neighbours = find_run_neighbours(
+            target_run, self.runs, self.time_delta, self.pointing_delta
+        )
+
+        evtfiles = self.read_runs(
+            target_run=target_run, neighbours=neighbours, cuts=self.cuts
+        )
+
+        images = [
+            RectangularCameraImage.from_events(
+                event_file, self.xedges, self.yedges, self.energy_edges
+            )
+            for event_file in evtfiles
+        ]
+
+        counts = np.sum([image.counts for image in images], axis=0)
+        exposure = u.Quantity([image.exposure for image in images]).sum(axis=0)
 
         return RectangularCameraImage(
             counts, self.xedges, self.yedges, self.energy_edges, exposure=exposure

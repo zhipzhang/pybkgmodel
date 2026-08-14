@@ -1,23 +1,25 @@
-from functools import reduce
 import glob
 import inspect
-from operator import getitem
 import os
+import pathlib
 import sys
+from functools import reduce
+from operator import getitem
 
 import numpy as np
+from astropy.table import QTable
 from regions import Regions
 
 try:
     import progressbar
-except:  # pylint: disable=bare-except
+except ImportError:  # pylint: disable=bare-except
     print("Please install the progressbar2 module (not progressbar)")
     sys.exit()
 import astropy.units as u
 
-from pybkgmodel.data import RunSummary
-from pybkgmodel.model import WobbleMap, ExclusionMap
 from pybkgmodel.camera import RectangularCameraImage
+from pybkgmodel.data import RunSummary
+from pybkgmodel.model import ExclusionMap, WobbleMap
 
 # list of class attributes, which have a unit assigned
 quantity_list = [
@@ -34,6 +36,7 @@ quantity_list = [
 # dictionary to map names in the config file to the class attribute names
 config_class_map = {
     "files": ["data", "mask"],
+    "off_index_files": ["off_index_files"],
     "cuts": ["data", "cuts"],
     "out_dir": ["output", "directory"],
     "out_prefix": ["output", "prefix"],
@@ -85,6 +88,8 @@ class BkgMakerBase:
     bkg_map_maker : class
         Class of the background reconstruction algorithm used to obtain the
         runwise background maps.
+    off_index_files : str
+        Path to the off index files, which are used for the loading off files
     """
 
     def __init__(
@@ -103,6 +108,7 @@ class BkgMakerBase:
         e_min,
         e_max,
         e_nbins,
+        off_index_files=None,
     ) -> None:
         """
         Function initializing a processing object.
@@ -167,12 +173,20 @@ class BkgMakerBase:
 
         self._bkg_map_maker = None
 
+        self.off_index_files = off_index_files
+
+        if self.off_index_files is not None:
+            if not os.path.exists(self.off_index_files):
+                raise FileNotFoundError(
+                    f"Off index file {self.off_index_files} does not exist."
+                )
+
     @property
     def bkg_map_maker(self):
         """Getter for bkg_map_maker."""
         print(
             "This class uses the background method:",
-            self.__bkg_map_maker.__class__.__name__,
+            self._bkg_map_maker.__class__.__name__,
         )
         return self._bkg_map_maker
 
@@ -193,8 +207,8 @@ class BkgMakerBase:
 
         Parameters
         ----------
-        config : dict
-            dictionary containing the settings read from the yaml configuration
+        config : dict|str
+            filename or dictionary containing the settings read from the yaml configuration
             file.
 
         Raises
@@ -202,6 +216,12 @@ class BkgMakerBase:
         ValueError
             Error is raised if no input dictionary is provided.
         """
+
+        if isinstance(config, str):
+            import yaml
+
+            with open(config, "r") as f:
+                config = yaml.safe_load(f)
 
         if config is None:
             raise ValueError("No configuration file provided.")
@@ -229,6 +249,7 @@ class BkgMakerBase:
                 print(
                     f"Parameter {config_class_map[f'{current_par}']} missing in config file."
                 )
+                current_par_val = None
 
             # assign the extracted parameter to the dictionary from which the
             # class object will be created
@@ -924,3 +945,82 @@ class StackedExclusionMap(Stacked):
         if not isinstance(maker, ExclusionMap):
             raise TypeError(f"Maker must be of type {ExclusionMap}")
         super(StackedExclusionMap, type(self)).bkg_map_maker.__set__(self, maker)
+
+
+class RunwiseOffMap(Runwise):
+    """
+    A class used to store the settings from the configuation file and to
+    facilitate the generation of runwise background maps using the off index
+    method.
+
+    Attributes
+    ----------
+    files : list
+        List of paths to the files corresponding to the data mask.
+    off_index_files : str
+        Path to the off index files, which are used for the loading off files
+    runs : tuple
+        Source data.
+    cuts : str
+        Event selection cuts.
+    out_dir : str
+        Path where to write the output files to.
+    out_prefix : str
+        Prefix of the output filename.
+    overwrite:  bool
+        Whether to overwrite existing output files of same name.
+    time_delta : astropy.units.quantity.Quantity
+        Time difference between runs for the run matching.
+    pointing_delta : astropy.units.quantity.Quantity
+        Pointing difference between runs for run matching.
+    x_edges : np.ndarray
+        Array of the bin edges along the x/azimuth axis; linear binning.
+    y_edges : np.ndarray
+        Array of the bin edges along the y/Zenith axis; linear binning.
+    e_edges : np.ndarray
+        Array of the bin edges in energy; logarithmic binning.
+    bkg_maps : dict
+        Dictionary containing the generated bkg maps and output names for each
+        run.
+    bkg_map_maker : class
+        Class of the background reconstruction algorithm used to obtain the
+        runwise background maps.
+    """
+
+    def __init__(
+        self,
+        files,
+        off_index_files,
+        cuts,
+        out_dir,
+        out_prefix,
+        overwrite,
+        time_delta,
+        pointing_delta,
+        x_min,
+        x_max,
+        y_min,
+        y_max,
+        x_nbins,
+        y_nbins,
+        e_min,
+        e_max,
+        e_nbins,
+    ):
+        super().__init__(
+            files,
+            cuts,
+            out_dir,
+            out_prefix,
+            overwrite,
+            x_min,
+            x_max,
+            y_min,
+            y_max,
+            x_nbins,
+            y_nbins,
+            e_min,
+            e_max,
+            e_nbins,
+            off_index_files,
+        )

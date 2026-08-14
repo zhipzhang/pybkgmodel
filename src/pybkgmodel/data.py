@@ -1,16 +1,23 @@
+import glob
 import os
 import re
+from dataclasses import dataclass
 from pathlib import Path
+
+import astropy.time
+import astropy.units as u
 import numpy as np
 import pandas
 import uproot
-
-from astropy.coordinates import SkyCoord, EarthLocation, AltAz
-from astropy.coordinates.erfa_astrom import erfa_astrom, ErfaAstromInterpolator
+from astropy.coordinates import AltAz, EarthLocation, SkyCoord
+from astropy.coordinates.erfa_astrom import ErfaAstromInterpolator, erfa_astrom
 from astropy.io import fits
 from astropy.table import Table
-import astropy.time
-import astropy.units as u
+from astropy.time.core import TIME_DELTA_FORMATS
+
+LST_LOCATION = EarthLocation(
+    lat=28.761758 * u.deg, lon=-17.890659 * u.deg, height=2200 * u.m
+)
 
 
 def find_run_neighbours(target_run, run_list, time_delta, pointing_delta):
@@ -254,7 +261,7 @@ class MagicRootEventFile(EventFile):
 
     @classmethod
     def get_obs_id(cls, file_name):
-        parsed = re.findall(".*\d+_(\d+)_\w_[0-9\w]+\-W[\d\.\+]+\.root", file_name)
+        parsed = re.findall(r".*\d+_(\d+)_\w_[0-9\w]+\-W[\d\.\+]+\.root", file_name)
         if parsed:
             obs_id = int(parsed[0])
         else:
@@ -438,7 +445,7 @@ class LstDL2EventFile(EventFile):
 
     @classmethod
     def get_obs_id(cls, file_name):
-        parsed = re.findall(".*dl2_LST-1.Run(\d+).h5", file_name)
+        parsed = re.findall(r".*dl2_LST-1.Run(\d+).h5", file_name)
         if parsed:
             obs_id = int(parsed[0])
         else:
@@ -908,3 +915,124 @@ class RunSummary:
         }
 
         return astropy.table.QTable(data)
+
+
+class OffRunSummary:
+    """
+    Runsummary for the off runs, OffRunSummary is constructed from the obs-index.fits.gz,
+    Thus the speed should be much faster.
+
+    Parameters
+    obs_id: int
+        Observation ID of the off run.
+    mjd_start: astropy.time.Time
+        Start time of the off run in MJD.
+    mjd_end: astropy.time.Time
+        End time of the off run in MJD.
+    az_tel: astropy.units.Quantity
+        Azimuth of the telescope pointing in degrees.
+    alt_tel: astropy.units.Quantity
+        Altitude of the telescope pointing in degrees.
+    ra_tel: astropy.units.Quantity
+        Right ascension of the telescope pointing in degrees.
+    dec_tel: astropy.units.Quantity
+        Declination of the telescope pointing in degrees.
+    """
+
+    def __init__(self, file_path, location=LST_LOCATION):
+        self.path_prefix = Path(file_path).parent
+
+        obs_index = Table.read(file_path, hdu="OBS INDEX")
+        self.obs_id = obs_index["OBS_ID"]
+        self.ra_tel = obs_index["RA_PNT"]
+        self.dec_tel = obs_index["DEC_PNT"]
+        self.az_tel = obs_index["AZ_PNT"]
+        self.alt_tel = obs_index["ALT_PNT"]
+
+        def make_isot(date_column, time_column):
+            dates = np.asarray(date_column).astype(str)
+            times = np.asarray(time_column).astype(str)
+            return np.char.add(np.char.add(dates, "T"), times)
+
+        start_isot = make_isot(obs_index["DATE-OBS"], obs_index["TIME-OBS"])
+        end_isot = make_isot(obs_index["DATE-END"], obs_index["TIME-END"])
+
+        self.mjd_start = astropy.time.Time(
+            start_isot,
+            format="isot",
+            scale="utc",
+            location=location,
+        ).mjd
+
+        self.mjd_end = astropy.time.Time(
+            end_isot,
+            format="isot",
+            scale="utc",
+            location=location,
+        ).mjd
+
+        self.files = self.find_files()
+
+    def find_files(self):
+        """
+        Find the files corresponding to the off run.
+
+        Returns
+        -------
+        list:
+            List of file paths corresponding to the off run.
+        """
+
+        file_paths = []
+        for obs_id in self.obs_id:
+            matching_files = glob.glob(
+                f"{self.path_prefix}/*{obs_id}*", recursive=False
+            )
+            if len(matching_files) == 0:
+                print(f"No file found for obs_id {obs_id}.")
+                continue
+            if len(matching_files) > 1:
+                print(f"Multiple files found for obs_id {obs_id}: {matching_files}")
+                continue
+            file_paths.append(matching_files[0])
+        return file_paths
+
+    def to_qtable(self):
+        data = {
+            "obs_id": self.obs_id,
+            "mjd_start": self.mjd_start,
+            "mjd_stop": self.mjd_end,
+            "az_tel": self.az_tel,
+            "alt_tel": self.alt_tel,
+            "ra_tel": self.ra_tel,
+            "dec_tel": self.dec_tel,
+            "file_name": self.files,
+        }
+
+        return astropy.table.QTable(data)
+
+
+def find_offrun_neighbours(target_run, offrunsummary: OffRunSummary, pointing_delta):
+    """
+    Returns the neighbours of the specified run.
+
+    Parameters
+    ----------
+    target_run: RunSummary
+        Run for which to find the neighbours.
+    offrunSummary: OffRunSummary
+        OffRunSummary where to look for the "target_run" neighbours.
+    pointing_delta: astropy.units.quantity.Quantity
+        Maximal pointing difference between the target and the "neibhbour" runs.
+    """
+
+    offrun_pointing = SkyCoord(
+        offrunsummary.az_tel, offrunsummary.alt_tel, frame=AltAz()
+    )
+    pointing_separation = target_run.tel_pointing_start.altaz.separation(
+        offrun_pointing
+    )
+    mask = pointing_separation < pointing_delta
+    neighbor_files = offrunsummary.files[mask]
+
+    return neighbor_files
