@@ -360,7 +360,7 @@ class Runwise(BkgMakerBase):
             Dictionary containing the bkg maps and output names for each run.
         """
 
-        self.generate_runwise_maps()
+        self.generate_runwise_maps(store_in_time=True)
         return self.bkg_maps
 
 
