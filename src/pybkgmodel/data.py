@@ -2,6 +2,7 @@ import glob
 import os
 import re
 from dataclasses import dataclass
+from itertools import compress
 from pathlib import Path
 
 import astropy.time
@@ -1036,6 +1037,6 @@ def find_offrun_neighbours(target_run, offrunsummary: OffRunSummary, pointing_de
     )
     pointing_separation = target_run_pointing.separation(offrun_pointing)
     mask = pointing_separation < pointing_delta
-    neighbor_files = offrunsummary.files[mask]
+    neighbor_files = list(compress(offrunsummary.files, mask))
 
     return neighbor_files
