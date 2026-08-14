@@ -5,10 +5,11 @@ import yaml
 
 from pybkgmodel.message import message
 from pybkgmodel.processing import (
-    RunwiseWobbleMap,
-    StackedWobbleMap,
     RunwiseExclusionMap,
+    RunwiseOffMap,
+    RunwiseWobbleMap,
     StackedExclusionMap,
+    StackedWobbleMap,
 )
 
 
@@ -53,6 +54,8 @@ def main():
         bkg_processor = RunwiseExclusionMap.from_config_file(config)
     elif config["mode"] == "stacked_exclusion":
         bkg_processor = StackedExclusionMap.from_config_file(config)
+    elif config["mode"] == "runwise_off":
+        bkg_processor = RunwiseOffMap.from_config_file(config)
     else:
         raise ValueError(
             f"Unsupported mode '{config['mode']}'. \

@@ -18,8 +18,8 @@ except ImportError:  # pylint: disable=bare-except
 import astropy.units as u
 
 from pybkgmodel.camera import RectangularCameraImage
-from pybkgmodel.data import RunSummary
-from pybkgmodel.model import ExclusionMap, WobbleMap
+from pybkgmodel.data import OffRunSummary, RunSummary
+from pybkgmodel.model import ExclusionMap, OffDataMap, WobbleMap
 
 # list of class attributes, which have a unit assigned
 quantity_list = [
@@ -972,7 +972,7 @@ class RunwiseOffMap(Runwise):
     time_delta : astropy.units.quantity.Quantity
         Time difference between runs for the run matching.
     pointing_delta : astropy.units.quantity.Quantity
-        Pointing difference between runs for run matching.
+        Pointing difference between runs for run matching. (not used in this class)
     x_edges : np.ndarray
         Array of the bin edges along the x/azimuth axis; linear binning.
     y_edges : np.ndarray
@@ -1024,3 +1024,24 @@ class RunwiseOffMap(Runwise):
             e_nbins,
             off_index_files,
         )
+        self.off_summary = OffRunSummary(self.off_index_files)
+        self.pointing_delta = pointing_delta
+        self.time_delta = time_delta
+        self.bkg_map_maker = OffDataMap(
+            self.off_summary,
+            self.x_edges,
+            self.y_edges,
+            self.e_edges,
+            self.cuts,
+            self.pointing_delta,
+        )
+
+    @property
+    def bkg_map_maker(self):
+        return super().bkg_map_maker
+
+    @bkg_map_maker.setter
+    def bkg_map_maker(self, maker):
+        if not isinstance(maker, OffDataMap):
+            raise TypeError(f"Maker must be of type {OffDataMap}")
+        super(RunwiseOffMap, type(self)).bkg_map_maker.__set__(self, maker)
