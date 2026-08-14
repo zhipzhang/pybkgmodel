@@ -37,6 +37,7 @@ def main():
         "runwise_wobble",
         "stacked_exclusion",
         "stacked_wobble",
+        "runwise_off",
     )
 
     if config["mode"] not in supported_modes:

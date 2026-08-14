@@ -257,7 +257,7 @@ class BkgMakerBase:
 
         return cls(**params_for_init)
 
-    def generate_runwise_maps(self) -> dict:
+    def generate_runwise_maps(self, store_in_time=False) -> dict:
         """
         Returns a dictionary containing the runwise bkg maps and output file names
         for each input run.
@@ -283,8 +283,10 @@ class BkgMakerBase:
                 output_name = os.path.join(
                     self.out_dir, f"{self.out_prefix}{base_name}.fits"
                 )
-
-                maps[f"{output_name}"] = bkg_map
+                if not store_in_time:
+                    maps[f"{output_name}"] = bkg_map
+                else:
+                    bkg_map.to_hdu().writeto(output_name, overwrite=self.overwrite)
 
                 progress.update(run_idx)
 
@@ -359,7 +361,6 @@ class Runwise(BkgMakerBase):
         """
 
         self.generate_runwise_maps()
-        self.write_maps(bkg_maps=self.bkg_maps, overwrite=self.overwrite)
         return self.bkg_maps
 
 
