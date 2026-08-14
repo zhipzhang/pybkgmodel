@@ -7,6 +7,7 @@ from pybkgmodel.data import (
     DL3EventFile,
     LstDL2EventFile,
     MagicRootEventFile,
+    find_offrun_neighbours,
     find_run_neighbours,
 )
 
@@ -186,8 +187,8 @@ class OffDataMap(BaseMap):
 
     Parameters
     ----------
-    runs : tuple
-        Source data.
+    offsummary : OffRunSummary
+        Summary of the off runs.
     x_edges : np.ndarray
         Array of bin edges along the x/azimuth axis.
     y_edges : np.ndarray
@@ -202,14 +203,14 @@ class OffDataMap(BaseMap):
 
     def __init__(
         self,
-        runs,
+        offsummary,
         x_edges,
         y_edges,
         e_edges,
         cuts,
-        pointing_delta=2 * u.deg,
+        pointing_delta=3 * u.deg,
     ):
-        self.runs = runs
+        self.offsummary = offsummary
         self.xedges = x_edges
         self.yedges = y_edges
         self.energy_edges = e_edges
@@ -229,13 +230,11 @@ class OffDataMap(BaseMap):
         RectangularCameraImage
             Camera image containing the summed event counts and exposure.
         """
-        neighbours = find_run_neighbours(
-            target_run, self.runs, self.time_delta, self.pointing_delta
+        neighbours_files = find_offrun_neighbours(
+            target_run, self.offsummary, self.pointing_delta
         )
 
-        evtfiles = self.read_runs(
-            target_run=target_run, neighbours=neighbours, cuts=self.cuts
-        )
+        evtfiles = [DL3EventFile(file) for file in neighbours_files]
 
         images = [
             RectangularCameraImage.from_events(
