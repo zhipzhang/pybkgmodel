@@ -150,6 +150,7 @@ class WobbleMap(BaseMap):
         evtfiles = self.read_runs(
             target_run=target_run, neighbours=neighbours, cuts=self.cuts
         )
+        print(f"Run{target_run._obs_id} have  {len(neighbours)} neighbours !")
 
         images = [
             RectangularCameraImage.from_events(
