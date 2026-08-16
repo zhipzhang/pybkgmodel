@@ -272,6 +272,7 @@ class BkgMakerBase:
         for run_idx, run in enumerate(self.runs):
             # Here the corrsponding bkg reconstruction algorith is applied
             # to obtain the runwise bkg map
+            print(f"working on run {run.obs_id}")
             bkg_map = self._bkg_map_maker.get_runwise_bkg(target_run=run)
 
             # get corresponding names for the bkg maps under which they can

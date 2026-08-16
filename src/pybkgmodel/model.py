@@ -230,6 +230,7 @@ class OffDataMap(BaseMap):
         RectangularCameraImage
             Camera image containing the summed event counts and exposure.
         """
+        print("Begin!!")
         neighbours_files = find_offrun_neighbours(
             target_run, self.offsummary, self.pointing_delta
         )
