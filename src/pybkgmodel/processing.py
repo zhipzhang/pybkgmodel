@@ -269,26 +269,23 @@ class BkgMakerBase:
         """
         maps = {}
 
-        with progressbar.ProgressBar(max_value=len(self.runs)) as progress:
-            for run_idx, run in enumerate(self.runs):
-                # Here the corrsponding bkg reconstruction algorith is applied
-                # to obtain the runwise bkg map
-                bkg_map = self._bkg_map_maker.get_runwise_bkg(target_run=run)
+        for run_idx, run in enumerate(self.runs):
+            # Here the corrsponding bkg reconstruction algorith is applied
+            # to obtain the runwise bkg map
+            bkg_map = self._bkg_map_maker.get_runwise_bkg(target_run=run)
 
-                # get corresponding names for the bkg maps under which they can
-                # be safed
-                base_name = os.path.basename(run.file_name)
-                base_name, _ = os.path.splitext(base_name)
+            # get corresponding names for the bkg maps under which they can
+            # be safed
+            base_name = os.path.basename(run.file_name)
+            base_name, _ = os.path.splitext(base_name)
 
-                output_name = os.path.join(
-                    self.out_dir, f"{self.out_prefix}{base_name}.fits"
-                )
-                if not store_in_time:
-                    maps[f"{output_name}"] = bkg_map
-                else:
-                    bkg_map.to_hdu().writeto(output_name, overwrite=self.overwrite)
-
-                progress.update(run_idx)
+            output_name = os.path.join(
+                self.out_dir, f"{self.out_prefix}{base_name}.fits"
+            )
+            if not store_in_time:
+                maps[f"{output_name}"] = bkg_map
+            else:
+                bkg_map.to_hdu().writeto(output_name, overwrite=self.overwrite)
 
         self._bkg_maps = maps
 
