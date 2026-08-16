@@ -243,7 +243,7 @@ class OffDataMap(BaseMap):
             )
             for event_file in evtfiles
         ]
-        print(f"Found {len(images)} off runs for run {target_run.run_id}")
+        print(f"Found {len(images)} off runs for run {target_run.obs_id}")
 
         counts = np.sum([image.counts for image in images], axis=0)
         exposure = u.Quantity([image.exposure for image in images]).sum(axis=0)
