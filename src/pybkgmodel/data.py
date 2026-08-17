@@ -565,7 +565,7 @@ class LstDL2EventFile(EventFile):
                 )
                 alt_az_frame = AltAz(obstime=lst_time, location=lst_loc)
 
-                if "pointing_ra" not in event_data:
+                if event_data["pointing_ra"] is None:
                     coords = SkyCoord(
                         alt=data["alt_tel"].to_numpy() * u.rad,
                         az=data["az_tel"].to_numpy() * u.rad,
@@ -579,7 +579,7 @@ class LstDL2EventFile(EventFile):
                         data_units["pointing_dec"]
                     ).value
 
-                if "event_ra" not in event_data:
+                if event_data["event_ra"] is None:
                     coords = SkyCoord(
                         alt=data["reco_alt"].to_numpy() * u.rad,
                         az=data["reco_az"].to_numpy() * u.rad,
