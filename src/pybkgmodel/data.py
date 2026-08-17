@@ -97,7 +97,7 @@ class EventSample:
 
     def apply_mask(self, mask):
         """Apply a boolean mask to all event-level columns in place."""
-        if len(mask) != len(self.event_ra):
+        if len(mask) != len(self.event_energy):
             raise ValueError("mask must have the same length as event_ra")
 
         self.__event_ra = self.__event_ra[mask]
