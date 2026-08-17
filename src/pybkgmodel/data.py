@@ -100,16 +100,22 @@ class EventSample:
         if len(mask) != len(self.event_energy):
             raise ValueError("mask must have the same length as event_ra")
 
-        self.__event_ra = self.__event_ra[mask]
-        self.__event_dec = self.__event_dec[mask]
-        self.__event_energy = self.__event_energy[mask]
-        self.__pointing_az = self.__pointing_az[mask]
-        self.__pointing_dec = self.__pointing_dec[mask]
-        self.__pointing_zd = self.__pointing_zd[mask]
-        self.__pointing_az = self.__pointing_az[mask]
-        self.__mjd = self.__mjd[mask]
+        for attribute in (
+            "_EventSample__event_ra",
+            "_EventSample__event_dec",
+            "_EventSample__event_energy",
+            "_EventSample__pointing_ra",
+            "_EventSample__pointing_az",
+            "_EventSample__pointing_dec",
+            "_EventSample__pointing_zd",
+            "_EventSample__mjd",
+            "_EventSample__delta_t",
+        ):
+            value = getattr(self, attribute)
+            if value is not None:
+                setattr(self, attribute, value[mask])
 
-        if hasattr(self, "gammaness"):
+        if hasattr(self, "gammaness") and self.gammaness is not None:
             self.gammaness = self.gammaness[mask]
 
     @property
