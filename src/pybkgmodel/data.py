@@ -860,9 +860,9 @@ class RunSummary:
         elif DL3EventFile.is_compatible(file_name):
             events = DL3EventFile(file_name)
             try:
-                gh_cuts = QTable.read(file_name, "GH_CUTS")
+                self.gh_cuts = QTable.read(file_name, "GH_CUTS")
             except Exception:
-                gh_cuts = None
+                self.gh_cuts = None
         else:
             raise RuntimeError(f"Unsupported file format for '{file_name}'.")
 
