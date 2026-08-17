@@ -974,11 +974,11 @@ class OffRunSummary:
 
         summary = pandas.read_hdf(file_path, "runsummary")
         self.obs_id = summary["runnumber"]
-        self.ra_tel = summary["mean_ra"] * u.rad
-        self.dec_tel = summary["mean_dec"] * u.rad
-        self.az_tel = summary["mean_azimuth"] * u.rad
-        self.alt_tel = summary["mean_altitude"] * u.rad
-        self.elapsed_time = summary["elapsed_time"] * u.s
+        self.ra_tel = np.asarray(summary["mean_ra"]) * u.rad
+        self.dec_tel = np.asarray(summary["mean_dec"]) * u.rad
+        self.az_tel = np.asarray(summary["mean_azimuth"]) * u.rad
+        self.alt_tel = np.asarray(summary["mean_altitude"]) * u.rad
+        self.elapsed_time = np.asarray(summary["elapsed_time"]) * u.s
 
         self.files = self.find_files()
 
