@@ -943,34 +943,13 @@ class OffRunSummary:
     def __init__(self, file_path, location=LST_LOCATION):
         self.path_prefix = Path(file_path).parent
 
-        obs_index = Table.read(file_path, hdu="OBS INDEX")
-        self.obs_id = obs_index["OBS_ID"]
-        self.ra_tel = obs_index["RA_PNT"]
-        self.dec_tel = obs_index["DEC_PNT"]
-        self.az_tel = obs_index["AZ_PNT"]
-        self.alt_tel = obs_index["ALT_PNT"]
-
-        def make_isot(date_column, time_column):
-            dates = np.asarray(date_column).astype(str)
-            times = np.asarray(time_column).astype(str)
-            return np.char.add(np.char.add(dates, "T"), times)
-
-        start_isot = make_isot(obs_index["DATE-OBS"], obs_index["TIME-OBS"])
-        end_isot = make_isot(obs_index["DATE-END"], obs_index["TIME-END"])
-
-        self.mjd_start = astropy.time.Time(
-            start_isot,
-            format="isot",
-            scale="utc",
-            location=location,
-        ).mjd
-
-        self.mjd_end = astropy.time.Time(
-            end_isot,
-            format="isot",
-            scale="utc",
-            location=location,
-        ).mjd
+        summary = pandas.read_hdf(file_path, "runsummary")
+        self.obs_id = summary["runnumber"]
+        self.ra_tel = summary["mean_ra"]
+        self.dec_tel = summary["mean_dec"]
+        self.az_tel = summary["mean_azimuth"]
+        self.alt_tel = summary["mean_altitude"]
+        self.elapsed_time = summary["elapsed_time"]
 
         self.files = self.find_files()
 
@@ -987,7 +966,7 @@ class OffRunSummary:
         file_paths = []
         for obs_id in self.obs_id:
             matching_files = glob.glob(
-                f"{self.path_prefix}/dl3_LST-1.Run{obs_id:05d}.fits", recursive=False
+                f"{self.path_prefix}/dl2_LST-1.Run{obs_id:05d}.fits", recursive=False
             )
             if len(matching_files) == 0:
                 print(f"No file found for obs_id {obs_id}.")
@@ -1001,8 +980,6 @@ class OffRunSummary:
     def to_qtable(self):
         data = {
             "obs_id": self.obs_id,
-            "mjd_start": self.mjd_start,
-            "mjd_stop": self.mjd_end,
             "az_tel": self.az_tel,
             "alt_tel": self.alt_tel,
             "ra_tel": self.ra_tel,
