@@ -91,7 +91,7 @@ class EventSample:
 
     def set_gammaness(self, gammaness):
         self.gammaness = gammaness
-        assert len(gammaness) == len(self.event_ra), (
+        assert len(gammaness) == len(self.__event_ra), (
             "gammaness must have the same length as event_ra"
         )
 
