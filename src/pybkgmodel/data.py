@@ -5,13 +5,17 @@ from dataclasses import dataclass
 from itertools import compress
 from pathlib import Path
 
+import astropy.coordinates as coord
 import astropy.time
 import astropy.units as u
 import numpy as np
 import pandas
 import uproot
 from astropy.coordinates import AltAz, EarthLocation, SkyCoord
-from astropy.coordinates.erfa_astrom import ErfaAstromInterpolator, erfa_astrom
+from astropy.coordinates.erfa_astrom import (
+    ErfaAstromInterpolator,
+    erfa_astrom,
+)
 from astropy.io import fits
 from astropy.table import Table
 from astropy.time.core import TIME_DELTA_FORMATS
@@ -564,33 +568,31 @@ class LstDL2EventFile(EventFile):
                     lat=28.761758 * u.deg, lon=-17.890659 * u.deg, height=2200 * u.m
                 )
                 alt_az_frame = AltAz(obstime=lst_time, location=lst_loc)
-
-                if event_data["pointing_ra"] is None:
+                with erfa_astrom.set(ErfaAstromInterpolator(10 * u.s)):
+                    # Put both AltAz → ICRS conversions here
                     coords = SkyCoord(
-                        alt=data["alt_tel"].to_numpy() * u.rad,
-                        az=data["az_tel"].to_numpy() * u.rad,
+                        alt=data["alt_tel"].to_numpy(copy=False) * u.rad,
+                        az=data["az_tel"].to_numpy(copy=False) * u.rad,
                         frame=alt_az_frame,
                     ).icrs
 
-                    event_data["pointing_ra"] = coords.ra.to(
+                    event_data["pointing_ra"] = coords.ra.to_value(
                         data_units["pointing_ra"]
-                    ).value
-                    event_data["pointing_dec"] = coords.dec.to(
+                    )
+                    event_data["pointing_dec"] = coords.dec.to_value(
                         data_units["pointing_dec"]
-                    ).value
+                    )
 
-                if event_data["event_ra"] is None:
                     coords = SkyCoord(
-                        alt=data["reco_alt"].to_numpy() * u.rad,
-                        az=data["reco_az"].to_numpy() * u.rad,
+                        alt=data["reco_alt"].to_numpy(copy=False) * u.rad,
+                        az=data["reco_az"].to_numpy(copy=False) * u.rad,
                         frame=alt_az_frame,
                     ).icrs
 
-                    event_data["event_ra"] = coords.ra.to(data_units["event_ra"]).value
-                    event_data["event_dec"] = coords.dec.to(
+                    event_data["event_ra"] = coords.ra.to_value(data_units["event_ra"])
+                    event_data["event_dec"] = coords.dec.to_value(
                         data_units["event_dec"]
-                    ).value
-
+                    )
         except KeyError:
             # The file is likely corrupted, so return empty arrays
             print(
