@@ -5,8 +5,11 @@ from astropy.coordinates import SkyCoord
 from pybkgmodel.camera import RectangularCameraImage
 from pybkgmodel.data import (
     DL3EventFile,
+    EventFile,
     LstDL2EventFile,
     MagicRootEventFile,
+    RunSummary,
+    apply_gammaness_cuts,
     find_offrun_neighbours,
     find_run_neighbours,
 )
@@ -217,7 +220,7 @@ class OffDataMap(BaseMap):
         self.cuts = cuts
         self.pointing_delta = pointing_delta
 
-    def get_runwise_bkg(self, target_run) -> RectangularCameraImage:
+    def get_runwise_bkg(self, target_run: RunSummary) -> RectangularCameraImage:
         """Build a runwise offset background map for ``target_run``.
 
         Parameters
@@ -230,12 +233,20 @@ class OffDataMap(BaseMap):
         RectangularCameraImage
             Camera image containing the summed event counts and exposure.
         """
-        print("Begin!!")
         neighbours_files = find_offrun_neighbours(
             target_run, self.offsummary, self.pointing_delta
         )
 
-        evtfiles = [DL3EventFile(file) for file in neighbours_files]
+        gh_cuts = target_run.gh_cuts
+        evtfiles = []
+        for file in neighbours_files:
+            events = LstDL2EventFile(file)
+            event_energy = events.event_energy.to_value(u.TeV)
+            event_gamaness = events.events.gammaness
+            masked = apply_gammaness_cuts(event_energy, event_gamaness, gh_cuts)
+            events.events.apply_mask(masked)
+            print(f"Selected {np.sum(masked)} events from {file}")
+            evtfiles.append(events)
 
         images = [
             RectangularCameraImage.from_events(
@@ -243,7 +254,6 @@ class OffDataMap(BaseMap):
             )
             for event_file in evtfiles
         ]
-        print(f"Found {len(images)} off runs for run {target_run.obs_id}")
 
         counts = np.sum([image.counts for image in images], axis=0)
         exposure = u.Quantity([image.exposure for image in images]).sum(axis=0)

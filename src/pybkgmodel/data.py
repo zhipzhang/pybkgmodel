@@ -15,6 +15,7 @@ from astropy.coordinates.erfa_astrom import ErfaAstromInterpolator, erfa_astrom
 from astropy.io import fits
 from astropy.table import Table
 from astropy.time.core import TIME_DELTA_FORMATS
+from regions.io.fits.read import QTable
 
 LST_LOCATION = EarthLocation(
     lat=28.761758 * u.deg, lon=-17.890659 * u.deg, height=2200 * u.m
@@ -87,6 +88,29 @@ class EventSample:
             self.__eff_obs_time = self.calc_eff_obs_time()
         else:
             self.__eff_obs_time = eff_obs_time
+
+    def set_gammaness(self, gammaness):
+        self.gammaness = gammaness
+        assert len(gammaness) == len(self.event_ra), (
+            "gammaness must have the same length as event_ra"
+        )
+
+    def apply_mask(self, mask):
+        """Apply a boolean mask to all event-level columns in place."""
+        if len(mask) != len(self.event_ra):
+            raise ValueError("mask must have the same length as event_ra")
+
+        self.__event_ra = self.__event_ra[mask]
+        self.__event_dec = self.__event_dec[mask]
+        self.__event_energy = self.__event_energy[mask]
+        self.__pointing_az = self.__pointing_az[mask]
+        self.__pointing_dec = self.__pointing_dec[mask]
+        self.__pointing_zd = self.__pointing_zd[mask]
+        self.__pointing_az = self.__pointing_az[mask]
+        self.__mjd = self.__mjd[mask]
+
+        if hasattr(self, "gammaness"):
+            self.gammaness = self.gammaness[mask]
 
     @property
     def delta_t(self):
@@ -596,7 +620,7 @@ class LstDL2EventFile(EventFile):
             event_data["delta_t"],
             None,
         )
-
+        event_sample.set_gammaness(event_data["gammaness"])
         return event_sample
 
 
@@ -826,6 +850,7 @@ class RunSummary:
     __file_name = None
     __tel_pointing_start = None
     __tel_pointing_stop = None
+    gh_cuts = None
 
     def __init__(self, file_name):
         if MagicRootEventFile.is_compatible(file_name):
@@ -834,6 +859,10 @@ class RunSummary:
             events = LstDL2EventFile(file_name)
         elif DL3EventFile.is_compatible(file_name):
             events = DL3EventFile(file_name)
+            try:
+                gh_cuts = QTable.read(file_name, "GH_CUTS")
+            except Exception:
+                gh_cuts = None
         else:
             raise RuntimeError(f"Unsupported file format for '{file_name}'.")
 
@@ -1017,3 +1046,28 @@ def find_offrun_neighbours(target_run, offrunsummary: OffRunSummary, pointing_de
     neighbor_files = list(compress(offrunsummary.files, mask))
 
     return neighbor_files
+
+
+def apply_gammaness_cuts(energy, gammaness, gh_cuts):
+    energy = np.asarray(energy)
+    gammaness = np.asarray(gammaness)
+
+    if energy.shape != gammaness.shape:
+        raise ValueError("energy and gammaness must have the same shape")
+
+    low = np.asarray(gh_cuts["low"])  # TeV
+    high = np.asarray(gh_cuts["high"])  # TeV
+    cuts = np.asarray(gh_cuts["cut"])
+
+    # Bins are interpreted as [low, high)
+    bin_index = np.searchsorted(low, energy, side="right") - 1
+
+    valid_energy = np.isfinite(energy) & (energy >= low[0]) & (energy < high[-1])
+
+    selected = np.zeros(energy.shape, dtype=bool)
+
+    selected[valid_energy] = np.isfinite(gammaness[valid_energy]) & (
+        gammaness[valid_energy] >= cuts[bin_index[valid_energy]]
+    )
+
+    return selected
